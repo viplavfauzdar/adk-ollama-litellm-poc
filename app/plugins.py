@@ -213,6 +213,9 @@ class OllamaToolCallBridgePlugin(BasePlugin):
             # No usable text; treat as unsupported tool below.
 
         if name not in allowed_names:
+            if name in {"weather_report", "calc_result", "result"}:
+                message = "Finished."
+                return types.Part(text=message), False, types.FinishReason.STOP
             message = (
                 f"Ollama emitted unsupported tool call '{name}'; ignoring it."
             )
@@ -261,6 +264,9 @@ class OllamaToolCallBridgePlugin(BasePlugin):
             # fall back to unsupported handling below
 
         if name not in allowed_names:
+            if name in {"weather_report", "calc_result", "result"}:
+                message = "Finished."
+                return types.Part(text=message), False, types.FinishReason.STOP
             message = (
                 f"Ollama emitted unsupported tool call '{name}'; ignoring it."
             )

@@ -36,8 +36,10 @@ Use the refresh arrow beside an event to replay from that point, or “New chat�
 
 ## What’s inside
 - `LlmAgent` with `LiteLlm(model=f"ollama_chat/{OLLAMA_MODEL}")`
-- Two function tools: `calc`, `http_get` (auto-wrapped by ADK)
-- A dedicated `weather` agent that calls the `weather_by_zip` tool to fetch live conditions for US ZIP codes via zippopotam.us + Open-Meteo
+- Three Python tools registered directly on the agent:
+  - `calc` for arithmetic
+  - `http_get` for resilient JSON fetches
+  - `weather_by_zip` (zippopotam.us + Open-Meteo) for current weather by US ZIP
 - Simple logger plugin plus an Ollama compatibility plugin to coerce plain JSON
   tool call text into proper ADK function calls
 
@@ -50,13 +52,49 @@ The **Agent Development Kit (ADK)** is Google’s framework for composing AI “
 
 In practice, ADK provides the agent framework; LiteLlm tells ADK how to reach Ollama; our code supplies the concrete tools, instructions, and plugins that define the agent’s behaviour.
 
+```
+Google ADK stack (this project)
+┌─────────────────────────────────────────┐
+│ ADK Web / CLI                          │
+│  • loads App from app/__init__.py      │
+│  • instantiates Runner                 │
+└─────────────────┬──────────────────────┘
+                  │
+┌─────────────────▼──────────────────────┐
+│ Runner (google.adk.runners.Runner)     │
+│  • manages sessions & plugins          │
+│  • calls root_agent on each message    │
+└─────────────────┬──────────────────────┘
+                  │
+┌─────────────────▼──────────────────────┐
+│ root_agent (LlmAgent)                  │
+│  • LiteLlm → Ollama backend            │
+│  • tools: calc, http_get, weather_by_zip│
+│  • plugins log/bridge tool responses   │
+└─────────────────┬──────────────────────┘
+                  │
+        ┌─────────▼──────────┐
+        │ LiteLlm / Ollama    │
+        │  • sends prompts    │
+        │  • emits tool calls │
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │ Python tools        │
+        │  app/tools.py       │
+        │  • calc             │
+        │  • http_get         │
+        │  • weather_by_zip   │
+        └─────────────────────┘
+```
+
 ## Architecture overview
 ```
 adk-ollama-litellm-poc/
 ├─ app/
 │  ├─ main.py         → CLI runner. Creates sessions, injects a user message, prints the final answer.
 │  ├─ agents.py       → Declares the root LlmAgent, wires it to LiteLlm/Ollama, and registers calc/http_get.
-│  │                    Also defines the weather sub-agent which specialises in ZIP-based weather lookups.
+│  │                    Also exposes the weather_by_zip tool alongside calc/http_get.
 │  ├─ tools.py        → Plain Python implementations of the calc and http_get tools.
 │  ├─ plugins.py      → LoggerPlugin (prints lifecycle events) and OllamaToolCallBridgePlugin (fixes Ollama JSON/tool-call quirks).
 │  └─ __init__.py     → Builds the ADK App object so adk web / runners can load the agent and plugins.
@@ -82,4 +120,4 @@ ADK events → CLI output or the ADK web UI
 
 LiteLlm is the bridge between ADK and the local Ollama server (`http://localhost:11434`). The helper plugin rewrites any plain-text tool call JSON that llama3 emits so ADK can execute the correct Python function and feed the result back to the model.
 
-To try the weather workflow, ask the assistant something like “What’s the weather for 94107?”—the root agent will delegate to the weather specialist, which calls `weather_by_zip` and summarizes the live conditions.
+To try the weather workflow, ask the assistant something like “What’s the weather for 94107?”—the agent will call `weather_by_zip`, then summarize the live conditions in °F with wind details.

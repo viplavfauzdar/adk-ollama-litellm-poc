@@ -1,0 +1,48 @@
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Byte-compiled
+*.egg-info/
+build/
+dist/
+
+# Local data
+.adk_data/
+*.db
+*.sqlite
+
+# Config & secrets
+.env
+.env.*
+*.key
+*.pem
+*.crt
+
+# Coverage & test artifacts
+.coverage
+htmlcov/
+pytest_cache/
+
+# Temporary & cache files
+*.tmp
+*.bak
+*.swp
+.cache/

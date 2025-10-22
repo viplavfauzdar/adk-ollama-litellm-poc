@@ -42,11 +42,34 @@ from importlib import import_module
 import google.genai.types as types
 from google.adk.runners import Runner
 from app.agents import root_agent
-from app.plugins import LoggerPlugin
+from app.plugins import LoggerPlugin, OllamaToolCallBridgePlugin
 
 APP_NAME = "app"
 USER_ID = os.getenv("ADK_USER_ID", "local-user")
 SESSION_ID = os.getenv("ADK_SESSION_ID", "local-session")
+
+
+def _tool_names() -> set[str]:
+    return _gather_tool_names(root_agent)
+
+
+def _gather_tool_names(agent) -> set[str]:
+    names: set[str] = set()
+    for tool in getattr(agent, "tools", []):
+        name = getattr(tool, "name", getattr(tool, "__name__", None))
+        if not isinstance(name, str):
+            continue
+        if name == agent.name:
+            continue
+        names.add(name)
+
+    for child in getattr(agent, "sub_agents", []) or []:
+        names.update(_gather_tool_names(child))
+
+    return names
+
+
+TOOL_NAMES = _tool_names()
 
 def make_session_service():
     """
@@ -82,7 +105,7 @@ async def run_local_agent_async(message: str):
         agent=root_agent,
         app_name=APP_NAME,
         session_service=session_service,
-        plugins=[LoggerPlugin()],
+        plugins=[OllamaToolCallBridgePlugin(allowed_tool_names=TOOL_NAMES), LoggerPlugin()],
     )
 
     # User message as ADK Content
@@ -104,6 +127,6 @@ async def run_local_agent_async(message: str):
 if __name__ == "__main__":
     msg = os.getenv(
         "ADK_TEST_MSG",
-        "First compute 2*(5+7) with the calc tool. Then fetch https://jsonplaceholder.typicode.com/todos/1 with http_get and summarize the title.",
+        "First compute 2*(5+7) with the calc tool. Then fetch https://jsonplaceholder.typicode.com/todos/1 with http_get and summarize the title. Finally, ask for the weather in ZIP code 94040.",
     )
     asyncio.run(run_local_agent_async(msg))
